@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>発注書兼カタログ</title>
+<style>
+:root{
+  --page-margin: 6mm;
+  --gap: 3.0mm;
+  --head-h-mm: 32mm;
+  --primary:#2563eb; --bg:#f7f9fb; --card:#ffffff; --border:#e5e9f0; --text:#0f172a; --muted:#64748b;
+  --success:#10b981; --danger:#ef4444;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans JP",sans-serif;color:var(--text);background:var(--bg)}
+
+.container{ width:min(1180px, 96vw); margin:0 auto; }
+
+/* ===== スタイリッシュな縦広ヘッダ ===== */
+.header-wrap{
+  position:sticky; top:0; z-index:40;
+  background:linear-gradient(180deg, #ffffff 10%, #f5f7fb 100%);
+  border-bottom:1px solid #e6ebf2;
+  box-shadow:0 10px 30px rgba(2,6,23,.04);
+}
+.hero{
+  display:flex; flex-direction:column; align-items:flex-start; gap:10px;
+  padding:18px 6px 14px;
+}
+.brand-stack{
+  display:flex; flex-direction:column; gap:10px;
+}
+.brand-stack .logo-row{
+  display:flex; align-items:center; gap:12px;
+}
+.brand-stack .logo-row img{ height:36px; display:block }
+.title{font-size:34px; font-weight:900; line-height:1; margin:0; letter-spacing:0.02em;}
+.sub{font-size:12px; color:var(--muted); margin-top:4px;}
+.tools{ margin-left:auto; display:flex; align-items:center; gap:10px }
+.search{
+  height:40px; border:1px solid #dbe1ea; background:#fff;
+  border-radius:12px; padding:0 14px; width:280px;
+  box-shadow:inset 0 1px 2px rgba(2,6,23,.05);
+}
+.pill{
+  height:40px; padding:0 14px; border-radius:12px; border:1px solid #dbe1ea; background:#fff; cursor:pointer;
+  display:flex; align-items:center; gap:6px;
+  box-shadow:0 1px 2px rgba(2,6,23,.04);
+}
+#cartBadge{background:var(--primary); color:#fff; border-radius:999px; padding:2px 8px; font-size:12px; line-height:1;}
+.print{border:none}
+
+/* ===== Grid / Card ===== */
+#grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+.card{ background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px; display:grid; grid-template-columns: 190px 1fr; gap:16px; }
+.card .thumb{ grid-column:1; grid-row:1 / span 3; }
+.card .thumb img{ width:100%; height:auto; display:block; border-radius:10px; }
+.card .meta{ grid-column:2; }
+.name{ font-size:18px; margin:0 0 6px 0; font-weight:800; }
+.sku, .jan-txt{ font-size:12px; color:var(--muted); }
+.pricewrap{ display:flex; align-items:center; gap:10px; margin-top:10px; }
+.price{ font-weight:900; }
+.price-badge{ font-size:12px; background:#eef2ff; color:var(--primary); border:1px solid #dfe3ff; border-radius:999px; padding:4px 10px; font-weight:700; }
+.discount{ font-size:12px; color:var(--danger); }
+.actions{ display:flex; align-items:center; gap:12px; margin-top:12px; }
+.qty{ display:flex; align-items:center; gap:10px; color:var(--muted); }
+
+/* === 見やすい数量コントロール（- input +） === */
+.qty .ctrl{
+  display:flex; align-items:center; gap:0;
+  background:#fff; border:1px solid #dbe1ea; border-radius:12px;
+  overflow:hidden; height:40px;
+  box-shadow:inset 0 1px 2px rgba(2,6,23,.05);
+}
+.qty .ctrl button{
+  width:40px; height:40px; border:none; background:#f1f5f9; color:#334155; cursor:pointer; font-size:18px; font-weight:700;
+}
+.qty .ctrl button:active{ background:#e2e8f0 }
+.qty .ctrl input{
+  width:120px; height:40px; border:none; outline:none; text-align:center; font-weight:700; color:#111827;
+}
+.qty .ctrl input::-webkit-outer-spin-button,
+.qty .ctrl input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0 }
+
+.btn{ background:var(--primary); color:#fff; border:none; border-radius:12px; padding:10px 14px; cursor:pointer; font-weight:700; }
+.btn.add{ background:var(--success); }
+
+.card.empty{ display:flex; align-items:center; justify-content:center; border:2px dashed #e5e7eb; background:#fff; min-height:140px }
+.card.empty img{ width:120px; height:auto; opacity:.85 }
+.jan-holder{ display:block !important; margin:8px 0 6px 0 !important; line-height:0; clear:both; }
+.jan-barcode{ display:block !important; max-width:220px !important; width:100% !important; height:28px !important; overflow:hidden; }
+
+/* カート */
+.print-summary{display:none}
+.print-summary .line{display:flex;justify-content:space-between;gap:8px;margin:2px 0}
+.print-summary .total{font-weight:800}
+
+#cartDrawer{position:fixed;top:104px;right:16px;width:320px;max-height:70vh;overflow:auto;background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 10px 30px rgba(2,6,23,.15);padding:12px;display:none;z-index:50;}
+#cartDrawer header{display:flex;align-items:center;justify-content:space-between}
+#cartDrawer .line{display:flex;justify-content:space-between;gap:8px;margin:8px 0}
+
+/* 印刷調整 */
+@media print{
+  .print-summary{display:block !important; margin-top:6px; border-top:1px dashed #cbd5e1; padding-top:6px;}
+
+  html,body{-webkit-print-color-adjust:exact; print-color-adjust:exact; background:#fff}
+  @page{ size:A4 portrait; margin: var(--page-margin); }
+  .header-wrap{ position:static; background:transparent; border:none; box-shadow:none }
+  .tools, .search, .pill{ display:none !important; }
+  #grid{ display:grid; grid-template-columns: 1fr 1fr !important; gap: var(--gap); margin-top: var(--gap) }
+  .card{ grid-template-columns: 150px 1fr; height: calc((297mm - (2*var(--page-margin)) - (3*var(--gap)) - var(--head-h-mm)) / 4 - 5mm); break-inside:avoid; border:1px solid #e5e7eb }
+  .jan-barcode{ height:22px !important; max-width:200px !important; }
+  .print-only{ display:block !important; }
+  .screen-only{ display:none !important; }
+}
+@media screen{ .print-only{ display:none !important; } }
+</style>
+</head>
+<body>
+  <div class="header-wrap">
+    <div class="container">
+      <header class="hero">
+        <div class="brand-stack">
+          <div class="logo-row">
+            <img data-src="biceps_logo.png" alt="biceps">
+          </div>
+          <div>
+            <h1 class="title">発注書兼カタログ</h1>
+            <div class="sub">株式会社バイセップス</div>
+          </div>
+        </div>
+        <div class="tools screen-only" style="margin-left:auto;">
+          <div id="cartButton" class="pill">🛒 カート <span id="cartBadge">0</span></div>
+          <input class="search" type="text" placeholder="検索…" />
+          <button class="pill print" onclick="window.print()">印刷 / PDF</button>
+        </div>
+        <div class="print-head print-only" style="margin-left:auto;">
+          <div style="display:flex; gap:8px;">
+            <img data-src="名刺1.png" alt="名刺1" style="height:30mm;object-fit:contain" />
+            <img data-src="名刺2.png" alt="名刺2" style="height:30mm;object-fit:contain" />
+          </div>
+        </div>
+      </header>
+      <div class="print-summary print-only">
+        <div class="line"><span>小計（税抜）</span><strong id="pSubtotal">¥0</strong></div>
+        <div class="line"><span>税（10%）</span><strong id="pTax">¥0</strong></div>
+        <div class="line total"><span>税込合計</span><strong id="pGrand">¥0</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Cart Drawer -->
+    <aside id="cartDrawer" class="screen-only">
+      <header><strong>注文カート</strong><button id="cartClose" class="pill" style="height:34px">閉じる</button></header>
+      <div class="print-summary print-only">
+        <div class="line"><span>小計（税抜）</span><strong id="pSubtotal">¥0</strong></div>
+        <div class="line"><span>税（10%）</span><strong id="pTax">¥0</strong></div>
+        <div class="line total"><span>税込合計</span><strong id="pGrand">¥0</strong></div>
+      </div>
+      <div id="cartItems" style="margin-top:8px;font-size:14px;color:#334155;"></div>
+      <div style="margin-top:8px">
+        <div class="line"><span>小計（税抜）</span><strong id="cartSubtotal">¥0</strong></div>
+        <div class="line"><span>税（10%）</span><strong id="cartTax">¥0</strong></div>
+        <div class="line"><span>税込合計</span><strong id="cartGrand">¥0</strong></div>
+      </div>
+      <div style="margin-top:8px;display:flex;justify-content:flex-end;gap:6px;">
+          <button id="cartClear" class="pill" style="background:#fee2e2;border-color:#fecaca;color:#991b1b">クリア</button>
+          <button onclick="window.print()" class="pill" style="background:#2563eb;color:#fff;border:none">印刷</button>
+      </div>
+    </aside>
+
+    <main id="grid">
+      <!-- 商品カード（数量デフォルト0） -->
+      <article class="card" data-jan="4907534251204">
+        <div class="thumb"><img data-src="富士手袋 ﾒｶﾞﾄﾝﾊﾟﾜｰ 耐切創手袋(ﾆﾄﾘﾙ)M.jpg" alt=""></div>
+        <div class="meta">
+          <h2 class="name">富士手袋 ﾒｶﾞﾄﾝﾊﾟﾜｰ 耐切創手袋(ﾆﾄﾘﾙ)/M</h2>
+          <div class="sku">品番: #25-12</div>
+          <div class="jan-txt">JAN: 4907534251204</div>
+          <div class="jan-holder"><span class="jan-barcode"></span></div>
+          <div class="pricewrap"><span class="price">販売価格 ¥430</span><span class="price-badge">特別価格 ¥430</span><span class="discount">値引: ▲50</span></div>
+          <div class="actions">
+            <div class="qty">数量 
+              <div class="ctrl">
+                <button type="button" class="minus">−</button>
+                <input type="number" min="0" value="0">
+                <button type="button" class="plus">＋</button>
+              </div>
+            </div>
+            <div class="order"><button class="btn add">カートに追加</button></div>
+          </div>
+          <div class="handwrite print-only" style="margin-top:6px;border-top:1px dashed #cbd5e1;padding-top:6px;"><span style="font-size:12px;color:#475569;">手書き注文数：</span><span style="display:inline-block;border-bottom:1px solid #334155;min-width:80px;height:16px;"></span></div>
+        </div>
+      </article>
+
+      <article class="card" data-jan="4907534251211">
+        <div class="thumb"><img data-src="富士手袋 ﾒｶﾞﾄﾝﾊﾟﾜｰ 耐切創手袋(ﾆﾄﾘﾙ)M.jpg" alt=""></div>
+        <div class="meta">
+          <h2 class="name">富士手袋 ﾒｶﾞﾄﾝﾊﾟﾜｰ 耐切創手袋(ﾆﾄﾘﾙ)/L</h2>
+          <div class="sku">品番: #25-12</div>
+          <div class="jan-txt">JAN: 4907534251211</div>
+          <div class="jan-holder"><span class="jan-barcode"></span></div>
+          <div class="pricewrap"><span class="price">販売価格 ¥430</span><span class="price-badge">特別価格 ¥430</span><span class="discount">値引: ▲50</span></div>
+          <div class="actions">
+            <div class="qty">数量 
+              <div class="ctrl">
+                <button type="button" class="minus">−</button>
+                <input type="number" min="0" value="0">
+                <button type="button" class="plus">＋</button>
+              </div>
+            </div>
+            <div class="order"><button class="btn add">カートに追加</button></div>
+          </div>
+          <div class="handwrite print-only" style="margin-top:6px;border-top:1px dashed #cbd5e1;padding-top:6px;"><span style="font-size:12px;color:#475569;">手書き注文数：</span><span style="display:inline-block;border-bottom:1px solid #334155;min-width:80px;height:16px;"></span></div>
+        </div>
+      </article>
+
+      <article class="card" data-jan="4907534252128">
+        <div class="thumb"><img data-src="富士手袋 ﾒｶﾞﾄﾝﾊﾟﾜｰ 耐切創手袋(ﾆﾄﾘﾙ)M.jpg" alt=""></div>
+        <div class="meta">
+          <h2 class="name">富士手袋 ﾒｶﾞﾄﾝﾊﾟﾜｰ 耐切創手袋(ﾆﾄﾘﾙ)/LL</h2>
+          <div class="sku">品番: #25-12</div>
+          <div class="jan-txt">JAN: 4907534252128</div>
+          <div class="jan-holder"><span class="jan-barcode"></span></div>
+          <div class="pricewrap"><span class="price">販売価格 ¥430</span><span class="price-badge">特別価格 ¥430</span><span class="discount">値引: ▲50</span></div>
+          <div class="actions">
+            <div class="qty">数量 
+              <div class="ctrl">
+                <button type="button" class="minus">−</button>
+                <input type="number" min="0" value="0">
+                <button type="button" class="plus">＋</button>
+              </div>
+            </div>
+            <div class="order"><button class="btn add">カートに追加</button></div>
+          </div>
+          <div class="handwrite print-only" style="margin-top:6px;border-top:1px dashed #cbd5e1;padding-top:6px;"><span style="font-size:12px;color:#475569;">手書き注文数：</span><span style="display:inline-block;border-bottom:1px solid #334155;min-width:80px;height:16px;"></span></div>
+        </div>
+      </article>
+
+      <article class="card" data-jan="4970687000418">
+        <div class="thumb"><img data-src="おたふく手袋 床革外縫い手袋.webp" alt=""></div>
+        <div class="meta">
+          <h2 class="name">おたふく手袋 床革外縫い手袋</h2>
+          <div class="sku">品番: K-433</div>
+          <div class="jan-txt">JAN: 4970687000418</div>
+          <div class="jan-holder"><span class="jan-barcode"></span></div>
+          <div class="pricewrap"><span class="price">販売価格 ¥244</span><span class="price-badge">特別価格 ¥244</span><span class="discount">値引: ▲14</span></div>
+          <div class="actions">
+            <div class="qty">数量 
+              <div class="ctrl">
+                <button type="button" class="minus">−</button>
+                <input type="number" min="0" value="0">
+                <button type="button" class="plus">＋</button>
+              </div>
+            </div>
+            <div class="order"><button class="btn add">カートに追加</button></div>
+          </div>
+          <div class="handwrite print-only" style="margin-top:6px;border-top:1px dashed #cbd5e1;padding-top:6px;"><span style="font-size:12px;color:#475569;">手書き注文数：</span><span style="display:inline-block;border-bottom:1px solid #334155;min-width:80px;height:16px;"></span></div>
+        </div>
+      </article>
+
+      <article class="card" data-jan="4518406149101">
+        <div class="thumb"><img data-src="ユニワールド 床革外縫い手袋.webp" alt=""></div>
+        <div class="meta">
+          <h2 class="name">ユニワールド 床革外縫い手袋</h2>
+          <div class="sku">品番: #4910</div>
+          <div class="jan-txt">JAN: 4518406149101</div>
+          <div class="jan-holder"><span class="jan-barcode"></span></div>
+          <div class="pricewrap"><span class="price">販売価格 ¥230</span><span class="price-badge">特別価格 ¥230</span><span class="discount">値引: ▲15</span></div>
+          <div class="actions">
+            <div class="qty">数量 
+              <div class="ctrl">
+                <button type="button" class="minus">−</button>
+                <input type="number" min="0" value="0">
+                <button type="button" class="plus">＋</button>
+              </div>
+            </div>
+            <div class="order"><button class="btn add">カートに追加</button></div>
+          </div>
+          <div class="handwrite print-only" style="margin-top:6px;border-top:1px dashed #cbd5e1;padding-top:6px;"><span style="font-size:12px;color:#475569;">手書き注文数：</span><span style="display:inline-block;border-bottom:1px solid #334155;min-width:80px;height:16px;"></span></div>
+        </div>
+      </article>
+
+      <article class="card empty"><img data-src="シマフクロウロゴ.png" alt=""></article>
+      <article class="card empty"><img data-src="シマフクロウロゴ.png" alt=""></article>
+      <article class="card empty"><img data-src="シマフクロウロゴ.png" alt=""></article>
+    </main>
+  </div>
+
+<script>
+// 画像パス（日本語/スペース対応）
+(function(){
+  function encAll(){ document.querySelectorAll('img[data-src]').forEach(function(img){ var f=img.getAttribute('data-src'); try{img.src=encodeURI(f);}catch(e){img.src=f;} }); }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', encAll); else encAll();
+})();
+
+// JANバーコード
+(function(){
+  var L={"0":"0001101","1":"0011001","2":"0010011","3":"0111101","4":"0100011","5":"0110001","6":"0101111","7":"0111011","8":"0110111","9":"0001011"};
+  var G={"0":"0100111","1":"0110011","2":"0011011","3":"0100001","4":"0011101","5":"0111001","6":"0000101","7":"0010001","8":"0001001","9":"0010111"};
+  var R={"0":"1110010","1":"1100110","2":"1101100","3":"1000010","4":"1011100","5":"1001110","6":"1010000","7":"1000100","8":"1001000","9":"1110100"};
+  var PARITY={"0":["L","L","L","L","L","L"],"1":["L","L","G","L","G","G"],"2":["L","L","G","G","L","G"],"3":["L","L","G","G","G","L"],"4":["L","G","L","L","G","G"],"5":["L","G","G","L","L","G"],"6":["L","G","G","G","L","L"],"7":["L","G","L","G","L","G"],"8":["L","G","L","G","G","L"],"9":["L","G","G","L","G","L"]};
+  function makePattern(d){var f=d[0],L6=d.slice(1,7),R6=d.slice(7),p="101",pa=PARITY[f]||PARITY["0"];for(var i=0;i<6;i++){p+=(pa[i]==="L"?L[L6[i]]:G[L6[i]])}p+="01010";for(var j=0;j<6;j++){p+=R[R6[j]]}p+="101";return p;}
+  function mm2px(mm){return mm*3.7795275591;}
+  function svgFromPattern(pattern,bar,h,quiet){bar=bar||0.33;h=h||22;quiet=quiet||3;var total=pattern.length+2*quiet,wpx=mm2px(total*bar),hpx=mm2px(h);var x0=mm2px(quiet*bar),sw=mm2px(bar);var svg=['<svg xmlns="http://www.w3.org/2000/svg" width="',wpx.toFixed(2),'" height="',hpx.toFixed(2),'" viewBox="0 0 ',wpx.toFixed(2),' ',hpx.toFixed(2),'">','<rect width="100%" height="100%" fill="white"/>','<g fill="black">'];for(var i=0;i<pattern.length;i++){if(pattern[i]==='1'){var xi=x0+sw*i;svg.push('<rect x="',xi.toFixed(2),'" y="0" width="',sw.toFixed(2),'" height="',hpx.toFixed(2),'"/>')}}svg.push('</g></svg>');return svg.join('');}
+  function renderJAN(){
+    document.querySelectorAll('.card').forEach(function(card){
+      card.querySelectorAll('.jan-holder').forEach(function(h){h.remove()});
+      var jan = card.getAttribute('data-jan'); if(!jan){ var t=card.querySelector('.jan-txt'); if(t){var m=(t.textContent||'').match(/JAN[:：]\s*(\d{8,14})/); if(m) jan=m[1];} }
+      if(!jan) return;
+      if(jan.length<13) jan=jan.padEnd(13,'0'); if(jan.length>13) jan=jan.slice(0,13);
+      var svg=svgFromPattern(makePattern(jan),0.33,22,3);
+      var txt=card.querySelector('.jan-txt'); if(txt) txt.style.display='none';
+      var hold=document.createElement('div'); hold.className='jan-holder';
+      var span=document.createElement('span'); span.className='jan-barcode'; span.innerHTML=svg; hold.appendChild(span);
+      if(txt && txt.parentNode){ txt.parentNode.insertBefore(hold, txt.nextSibling); } else { (card.querySelector('.meta')||card).appendChild(hold); }
+    });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', renderJAN); else renderJAN();
+})();
+
+// 数量 +/- ボタン
+(function(){
+  function clamp(v){ v = parseInt(v||'0',10); if(isNaN(v)||v<0) v=0; return v; }
+  function bindSteppers(scope){
+    (scope||document).querySelectorAll('.qty .ctrl').forEach(function(ctrl){
+      const input = ctrl.querySelector('input[type="number"]');
+      const minus = ctrl.querySelector('.minus');
+      const plus = ctrl.querySelector('.plus');
+      minus.addEventListener('click', ()=>{ input.value = Math.max(0, clamp(input.value)-1); });
+      plus.addEventListener('click', ()=>{ input.value = clamp(input.value)+1; });
+      input.addEventListener('input', ()=>{ input.value = clamp(input.value); });
+    });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', ()=>bindSteppers()); else bindSteppers();
+})();
+
+// カート
+(function(){
+  const drawer = document.getElementById('cartDrawer');
+  const btn = document.getElementById('cartButton');
+  const closeBtn = document.getElementById('cartClose');
+  const clearBtn = document.getElementById('cartClear');
+  const badge = document.getElementById('cartBadge');
+  const itemsEl = document.getElementById('cartItems');
+  const totalEl = document.getElementById('cartTotal');
+
+  const cart = new Map(); // name -> {qty, price}
+
+  function yen(v){ return '¥' + (v||0).toLocaleString('ja-JP'); }
+  function render(){
+    let tq=0, ta=0;
+    itemsEl.innerHTML='';
+    cart.forEach((v,k)=>{
+      if(v.qty<=0) return;
+      tq += v.qty; ta += v.qty * v.price;
+      const row=document.createElement('div');
+      row.className='line';
+      row.innerHTML = `<div style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${k}</div><div>${v.qty} × ${yen(v.price)}</div>`;
+      itemsEl.appendChild(row);
+    });
+    badge.textContent=tq;
+    totalEl.textContent=yen(ta);
+  }
+
+  function bind(){
+    document.querySelectorAll('#grid .card:not(.empty) .btn.add').forEach(function(b){
+      b.addEventListener('click', function(e){
+        const card = e.target.closest('.card');
+        const name = (card.querySelector('.name')?.textContent || '商品').trim();
+        const priceText = card.dataset.special ? ('¥'+card.dataset.special) : (card.querySelector('.price-badge')?.textContent || card.querySelector('.price')?.textContent || '');
+        const price = parseInt(String(priceText).replace(/[^\d]/g,''),10) || 0;
+        const qtyInput = card.querySelector('input[type="number"]');
+        let qty = parseInt(qtyInput?.value||'0',10);
+        if(!qty || qty<1) { qty = 0; }
+        const cur = cart.get(name) || {qty:0, price:price};
+        cur.qty += qty;
+        cur.price = price;
+        cart.set(name, cur);
+        render();
+        drawer.style.display='block';
+      }, {passive:true});
+    });
+  }
+
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', bind); } else { bind(); }
+
+  btn?.addEventListener('click', ()=>{ drawer.style.display = (drawer.style.display==='block'?'none':'block'); });
+  closeBtn?.addEventListener('click', ()=>{ drawer.style.display='none'; });
+  clearBtn?.addEventListener('click', ()=>{ cart.clear(); render(); });
+})();
+</script>
+
+<script id="excelData" type="application/json">[{"jan":"4907534251204","name":"富士手袋 ﾒｶﾞﾄﾝﾊﾟﾜｰ 耐切創手袋(ﾆﾄﾘﾙ)/M","price":430,"special":380,"discount_label":"▲50"},{"jan":"4907534251211","name":"富士手袋 ﾒｶﾞﾄﾝﾊﾟﾜｰ 耐切創手袋(ﾆﾄﾘﾙ)/L","price":430,"special":380,"discount_label":"▲50"},{"jan":"4907534251228","name":"富士手袋 ﾒｶﾞﾄﾝﾊﾟﾜｰ 耐切創手袋(ﾆﾄﾘﾙ)/LL","price":430,"special":380,"discount_label":"▲50"},{"jan":"4970687000418","name":"おたふく手袋 床革外縫い手袋","price":244,"special":230,"discount_label":"▲14"},{"jan":"4518406149101","name":"ユニワールド 床革外縫い手袋","price":230,"special":215,"discount_label":"▲15"}]</script>
+<script>
+// Excelの特別価格(値引後価格)を反映 & data-special に保持
+(function() {
+  function yen(n){return '¥'+(n||0).toLocaleString('ja-JP');}
+  const data = JSON.parse(document.getElementById('excelData')?.textContent||'[]');
+  const byJAN = new Map(data.map(o=>[String(o.jan), o]));
+  const byName = new Map(data.map(o=>[o.name, o]));
+  document.querySelectorAll('#grid .card:not(.empty)').forEach(card=>{
+    const jan = String(card.getAttribute('data-jan')||'').trim();
+    const name = (card.querySelector('.name')?.textContent||'').trim();
+    let rec = byJAN.get(jan) || byName.get(name);
+    if(!rec) { for(const v of data){ if(name.replace(/\s+/g,'').includes(String(v.name).replace(/\s+/g,''))){ rec=v; break; } } }
+    if(!rec) return;
+    const base = card.querySelector('.price');
+    const badge = card.querySelector('.price-badge');
+    const disc = card.querySelector('.discount');
+    if(base) base.textContent = '販売価格 ' + yen(rec.price);
+    if(badge) badge.textContent = '特別価格 ' + yen(rec.special);
+    if(disc) disc.textContent = '値引: ' + (rec.discount_label||'');
+    card.dataset.special = String(rec.special);
+  });
+})();
+</script>
+<script>
+// カート集計：特別価格ベース & 明細に「特別価格」明記、3段集計
+(function(){
+  const drawer = document.getElementById('cartDrawer');
+  const btn = document.getElementById('cartButton');
+  const closeBtn = document.getElementById('cartClose');
+  const clearBtn = document.getElementById('cartClear');
+  const badge = document.getElementById('cartBadge');
+  const itemsEl = document.getElementById('cartItems');
+  const subEl = document.getElementById('cartSubtotal');
+  const taxEl = document.getElementById('cartTax');
+  const grandEl = document.getElementById('cartGrand');
+  // print summary
+  const pSub = document.getElementById('pSubtotal');
+  const pTax = document.getElementById('pTax');
+  const pGrand = document.getElementById('pGrand');
+
+  const cart = new Map(); // name -> {qty, price}
+
+  function yen(v){ return '¥' + (v||0).toLocaleString('ja-JP'); }
+  function totals(){
+    let sub=0, q=0;
+    cart.forEach(v=>{ sub += v.qty * v.price; q+=v.qty; });
+    const tax = Math.floor(sub * 0.10);
+    const grand = sub + tax;
+    return {sub, tax, grand, q};
+  }
+  function render(){
+    itemsEl.innerHTML='';
+    cart.forEach((v,k)=>{
+      if(v.qty<=0) return;
+      const line=document.createElement('div');
+      line.className='line';
+      line.innerHTML = `<div style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${k}</div>
+                        <div>${v.qty} × <span style="font-size:12px;background:#eef2ff;color:#2563eb;border:1px solid #dfe3ff;border-radius:999px;padding:1px 6px;">特別価格</span> ${yen(v.price)}</div>`;
+      itemsEl.appendChild(line);
+    });
+    const t = totals();
+    badge.textContent = t.q;
+    subEl.textContent = yen(t.sub);
+    taxEl.textContent = yen(t.tax);
+    grandEl.textContent = yen(t.grand);
+    // print summaryにも同期
+    if(pSub) pSub.textContent = yen(t.sub);
+    if(pTax) pTax.textContent = yen(t.tax);
+    if(pGrand) pGrand.textContent = yen(t.grand);
+  }
+  function bind(){
+    document.querySelectorAll('#grid .card:not(.empty) .btn.add').forEach(function(b){
+      b.addEventListener('click', function(e){
+        const card = e.target.closest('.card');
+        const name = (card.querySelector('.name')?.textContent || '商品').trim();
+        const special = parseInt(String(card.dataset.special||'0').replace(/[^\d]/g,''),10) || 0;
+        const qtyInput = card.querySelector('input[type="number"]');
+        let qty = parseInt(qtyInput?.value||'0',10);
+        if(!qty || qty<1) qty=0;
+        const cur = cart.get(name) || {qty:0, price:special};
+        cur.qty += qty;
+        cur.price = special;
+        cart.set(name, cur);
+        render();
+        drawer.style.display='block';
+      }, {passive:true});
+    });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bind); else bind();
+  btn?.addEventListener('click', ()=>{ drawer.style.display = (drawer.style.display==='block'?'none':'block'); });
+  closeBtn?.addEventListener('click', ()=>{ drawer.style.display='none'; });
+  clearBtn?.addEventListener('click', ()=>{ cart.clear(); render(); });
+})();
+</script>
+
+
+<!-- === GAS endpoint (replace with your /exec URL) === -->
+<script>
+  window.GAS_ENDPOINT = 'https://script.google.com/macros/s/REPLACE_WITH_YOUR_EXEC/exec';
+</script>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const drawer = document.getElementById('cartDrawer');
+  const insertTarget = drawer || document.body;
+
+  const wrap = document.createElement('div');
+  wrap.id = 'buyerPanel';
+  wrap.style.marginTop = '12px';
+  wrap.style.borderTop = '1px dashed #cbd5e1';
+  wrap.style.paddingTop = '10px';
+  wrap.innerHTML = `
+    <div style="font-weight:700;margin-bottom:6px;">購入者情報</div>
+    <div class="row" style="display:grid;grid-template-columns:100px 1fr;gap:8px;margin:6px 0;">
+      <label>お名前 *</label><input id="buyerName" placeholder="山田 太郎">
+    </div>
+    <div class="row" style="display:grid;grid-template-columns:100px 1fr;gap:8px;margin:6px 0;">
+      <label>所属/店舗</label><input id="buyerStore" placeholder="例：高槻店">
+    </div>
+    <div class="row" style="display:grid;grid-template-columns:100px 1fr;gap:8px;margin:6px 0;">
+      <label>パートナー</label><input id="buyerPartner" placeholder="（任意）">
+    </div>
+    <div class="row" style="display:grid;grid-template-columns:100px 1fr;gap:8px;margin:6px 0;">
+      <label>電話</label><input id="buyerPhone" placeholder="（任意）">
+    </div>
+    <div class="row" style="display:grid;grid-template-columns:100px 1fr;gap:8px;margin:6px 0;">
+      <label>備考</label><input id="buyerNote" placeholder="納期・配送先など（任意）">
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px;">
+      <button id="btnSend" class="pill" style="background:#2563eb;color:#fff;border:none;padding:10px 14px;border-radius:10px;">この内容で送信</button>
+    </div>
+    <div id="sendMsg" style="display:none;margin-top:6px;font-size:13px;"></div>
+  `;
+
+  // Try to place into drawer after totals; else append at end of drawer/body
+  if (drawer) {
+    drawer.appendChild(wrap);
+  } else {
+    insertTarget.appendChild(wrap);
+  }
+});
+</script>
+
+
+<script>
+// Expose cart content as an export function
+window.__cart_export__ = window.__cart_export__ || (function(){
+  // Try to detect used symbols from existing page
+  // Expect global 'cart' Map and 'totals' function (graceful fallback)
+  try {
+    return function(){
+      const lines = [];
+      const janByName = new Map();
+      document.querySelectorAll('#grid .card:not(.empty)').forEach(card=>{
+        const name = (card.querySelector('.name')?.textContent||'').trim();
+        const jan  = String(card.getAttribute('data-jan')||'');
+        if(name) janByName.set(name, jan);
+      });
+      if (typeof cart !== 'undefined' && cart instanceof Map) {
+        cart.forEach((v, name)=>{
+          if (v && Number(v.qty||0) > 0) {
+            lines.push({
+              name: name,
+              jan: janByName.get(name) || '',
+              qty: Number(v.qty||0),
+              unit_price: Number(v.price||0)
+            });
+          }
+        });
+      }
+      const t = (typeof totals === 'function') ? totals() : {sub:0,tax:0,grand:0};
+      return { items: lines, totals: t };
+    };
+  } catch (e) {
+    return function(){ return {items: [], totals: {sub:0,tax:0,grand:0}}; };
+  }
+})();
+
+// Submit handler
+(function(){
+  function showMsg(ok, text){
+    const msg = document.getElementById('sendMsg');
+    if (!msg) return;
+    msg.style.display = 'block';
+    msg.style.color   = ok ? '#065f46' : '#991b1b';
+    msg.style.background = ok ? '#ecfdf5' : '#fef2f2';
+    msg.style.border = '1px solid ' + (ok ? '#a7f3d0' : '#fecaca');
+    msg.style.padding = '8px';
+    msg.textContent = text;
+  }
+  async function submit(){
+    const name   = document.getElementById('buyerName')?.value.trim();
+    const store  = document.getElementById('buyerStore')?.value.trim();
+    const partner= document.getElementById('buyerPartner')?.value.trim();
+    const phone  = document.getElementById('buyerPhone')?.value.trim();
+    const note   = document.getElementById('buyerNote')?.value.trim();
+    if(!name){ showMsg(false,'お名前は必須です。'); return; }
+
+    if(typeof window.__cart_export__ !== 'function'){
+      showMsg(false,'カートが見つかりません。'); return;
+    }
+    const cart = window.__cart_export__();
+    if(!cart.items || cart.items.length===0){
+      showMsg(false,'カートに商品がありません。'); return;
+    }
+    const payload = {
+      user: { name, store, partner, phone, note },
+      items: cart.items,
+      totals: cart.totals
+    };
+    try{
+      const endpoint = window.GAS_ENDPOINT || '';
+      if(!endpoint || !/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(endpoint)){
+        showMsg(false,'GASの /exec URL を設定してください。'); return;
+      }
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        mode: 'cors',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      if(json.ok){
+        showMsg(true, `送信しました（${json.appended||cart.items.length}行）。ありがとうございました。`);
+      }else{
+        showMsg(false, 'エラー: ' + (json.error||'unknown_error'));
+      }
+    }catch(err){
+      showMsg(false, '通信エラー: ' + err.message);
+    }
+  }
+  document.addEventListener('click', function(ev){
+    const t = ev.target;
+    if (t && t.id === 'btnSend') {
+      submit();
+    }
+  });
+})();
+</script>
+
+
+<!-- Catalog loader (static JSON) -->
+<script>
+const DATA_URL = './products.json';  // Put products.json next to this HTML
+const PAGE_SIZE = 40;
+let ALL = [];
+let view = [];
+let cursor = 0;
+
+async function loadCatalog(){
+  try{
+    const res = await fetch(DATA_URL, {cache:'force-cache'});
+    if(!res.ok) throw new Error('products.json not found');
+    ALL = await res.json();
+    view = ALL;
+    cursor = 0;
+    const grid = document.getElementById('grid');
+    if (grid) grid.innerHTML = '';
+    appendMore();
+  }catch(e){
+    console.warn('Catalog load skipped:', e.message);
+  }
+}
+
+function materializeCard(p){
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.setAttribute('data-jan', p.jan || '');
+  card.innerHTML = `
+    <div class="thumb"><img src="${p.img||''}" alt="" loading="lazy" decoding="async"></div>
+    <div class="name">${p.name||''}</div>
+    <div class="prices">
+      ${p.special_price!=null ? `<div class="sp">特別価格 ¥${Number(p.special_price||0).toLocaleString()}</div>` : ''}
+      ${p.regular_price!=null ? `<div class="rp">通常 ¥${Number(p.regular_price||0).toLocaleString()}</div>` : ''}
+    </div>
+    <div class="pack">入数: ${p.pack||1}</div>
+    <div class="qty-row">
+      <input type="number" min="0" step="1" value="0" class="qty-input">
+      <button class="add">カートに追加</button>
+    </div>
+  `;
+  const btn = card.querySelector('.add');
+  const input = card.querySelector('.qty-input');
+  btn?.addEventListener('click', () => {
+    const qty = Number(input.value||0);
+    const price = (p.special_price ?? p.regular_price) || 0;
+    if (typeof window.addToCart === 'function') {
+      window.addToCart(p.name, qty, price, { jan: p.jan, pack: p.pack });
+    } else {
+      alert('addToCart 関数が見つかりません。既存のカートIIFEにエクスポートしてください。');
+    }
+  });
+  return card;
+}
+
+function appendMore(){
+  const grid = document.getElementById('grid');
+  if (!grid) return;
+  const end = Math.min(cursor + PAGE_SIZE, view.length);
+  for(let i = cursor; i < end; i++){
+    grid.appendChild(materializeCard(view[i]));
+  }
+  cursor = end;
+  const moreBtn = document.getElementById('moreBtn');
+  if (moreBtn) moreBtn.style.display = (cursor < view.length) ? 'block' : 'none';
+}
+
+function filterCatalog(q){
+  q = (q||'').trim();
+  if(!ALL.length) return; // if no JSON provided, skip silently
+  if(!q){
+    view = ALL; cursor = 0;
+  }else{
+    const kw = q.toLowerCase();
+    view = ALL.filter(p => (p.name||'').toLowerCase().includes(kw)
+                        || (p.brand||'').toLowerCase().includes(kw)
+                        || String(p.jan||'').includes(q));
+    cursor = 0;
+  }
+  const grid = document.getElementById('grid');
+  if (grid) grid.innerHTML = '';
+  appendMore();
+}
+
+// Insert search bar near the top if not present
+document.addEventListener('DOMContentLoaded', function(){
+  const header = document.querySelector('header') || document.body;
+  const box = document.createElement('div');
+  box.style.margin = '8px 0';
+  box.innerHTML = `
+    <input id="searchBox" placeholder="商品名/JAN/ブランドで検索" oninput="filterCatalog(this.value)" style="width:100%; padding:10px; border:1px solid #d1d5db; border-radius:10px;"/>
+    <button id="moreBtn" style="margin-top:8px; display:none; padding:10px 14px; border:1px solid #d1d5db; border-radius:10px; background:#f3f4f6;">もっと見る</button>
+  `;
+  header.insertBefore(box, header.firstChild);
+});
+document.getElementById('moreBtn')?.addEventListener('click', appendMore);
+
+// Try to load catalog JSON (if absent, page still works with built-in items)
+loadCatalog();
+</script>
+
+</body>
+</html>
