@@ -1,0 +1,29 @@
+[
+  {
+    "jan": "490000000001",
+    "name": "ｶﾓｲ ﾏｽｷﾝｸﾞﾃｰﾌﾟ 24mm×18m",
+    "brand": "ｶﾓｲ",
+    "regular_price": 320,
+    "special_price": 298,
+    "pack": 10,
+    "img": "img/490000000001.jpg"
+  },
+  {
+    "jan": "490000000002",
+    "name": "ｶﾓｲ ﾏｽｷﾝｸﾞﾃｰﾌﾟ 18mm×18m",
+    "brand": "ｶﾓｲ",
+    "regular_price": 280,
+    "special_price": 258,
+    "pack": 10,
+    "img": "img/490000000002.jpg"
+  },
+  {
+    "jan": "490000000003",
+    "name": "養生ﾃｰﾌﾟ ﾌﾞﾙｰ 24mm×18m",
+    "brand": "その他",
+    "regular_price": 260,
+    "special_price": 240,
+    "pack": 10,
+    "img": "img/490000000003.jpg"
+  }
+]
