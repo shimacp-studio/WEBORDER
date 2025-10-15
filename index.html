@@ -736,6 +736,109 @@ document.getElementById('moreBtn')?.addEventListener('click', appendMore);
 // Try to load catalog JSON (if absent, page still works with built-in items)
 loadCatalog();
 </script>
+<script>
+/* === 1) addToCart をフックしてシャドウカートにも保存（互換用） === */
+(function(){
+  const original = window.addToCart;
+  window.__shadowCart = new Map();
+  window.addToCart = function(name, qty, price, meta={}){
+    // 既存の処理を先に実行
+    if (typeof original === 'function') {
+      try { original.apply(this, arguments); } catch(e){}
+    }
+    // こちらでも保持（数量が0/NaNなら無視）
+    qty = Number(qty||0);
+    if (qty > 0) {
+      const cur = window.__shadowCart.get(name) || { qty:0, price:Number(price||0), jan: meta.jan||'', pack: meta.pack||1 };
+      cur.qty += qty;
+      cur.price = Number(price||cur.price||0);
+      cur.jan   = meta.jan || cur.jan || '';
+      cur.pack  = meta.pack || cur.pack || 1;
+      window.__shadowCart.set(name, cur);
+    }
+  };
+})();
+
+/* === 2) エクスポート関数を強化：shadowCart → window.cart(Map) → DOM走査 の順で採取 === */
+window.__cart_export__ = function(){
+  const lines = [];
+
+  // A) シャドウカートがあれば最優先
+  if (window.__shadowCart && window.__shadowCart.size > 0) {
+    window.__shadowCart.forEach((v, name)=>{
+      if (Number(v.qty||0) > 0) {
+        lines.push({ name, jan: v.jan||'', qty:Number(v.qty||0), unit_price:Number(v.price||0) });
+      }
+    });
+  }
+
+  // B) まだ空なら、既存の window.cart(Map) を見る
+  if (lines.length === 0 && window.cart instanceof Map) {
+    // 商品名→JAN をカードDOMから復元
+    const janByName = new Map();
+    document.querySelectorAll('#grid .card:not(.empty)').forEach(card=>{
+      const name = (card.querySelector('.name')?.textContent||'').trim();
+      const jan  = String(card.getAttribute('data-jan')||'');
+      if (name) janByName.set(name, jan);
+    });
+    window.cart.forEach((v, name)=>{
+      const qty = Number(v?.qty||0);
+      if (qty > 0) {
+        lines.push({
+          name,
+          jan: janByName.get(name) || v?.jan || '',
+          qty,
+          unit_price: Number(v?.price||0)
+        });
+      }
+    });
+  }
+
+  // C) それでも空なら、カートドロワーのDOMから拾う（class名は環境差に強いセレクタで）
+  if (lines.length === 0) {
+    const rows = document.querySelectorAll('#cartDrawer .cart-item, #cartDrawer [data-cart-item], #cartDrawer .row');
+    rows.forEach(row=>{
+      const nameEl = row.querySelector('.name, [data-name]');
+      const qtyEl  = row.querySelector('input[type="number"], .qty, [data-qty]');
+      const priceEl= row.querySelector('.price, [data-price]');
+      const janEl  = row.querySelector('[data-jan]');
+      const name = (nameEl?.textContent || nameEl?.value || '').trim();
+      const qty  = Number((qtyEl?.value || qtyEl?.textContent || '').replace(/[^\d.-]/g,''));
+      const unit = Number((priceEl?.getAttribute('data-price') || priceEl?.textContent || '').replace(/[^\d.-]/g,''));
+      const jan  = (janEl?.getAttribute?.('data-jan') || janEl?.textContent || '').trim();
+      if (name && qty > 0) {
+        lines.push({ name, jan, qty, unit_price: unit || 0 });
+      }
+    });
+  }
+
+  // 合計（あるなら既存の totals()、なければ税込=単価*数量の簡易計算）
+  let t = { sub:0, tax:0, grand:0 };
+  if (typeof totals === 'function') {
+    try { t = totals() || t; } catch(e){}
+  } else {
+    let incl = 0;
+    lines.forEach(l => incl += l.qty * l.unit_price);
+    t.grand = Math.round(incl);
+    t.sub   = Math.round(incl / 1.1);
+    t.tax   = t.grand - t.sub;
+  }
+  return { items: lines, totals: t };
+};
+
+/* === 3) デバッグボタン（任意）：現在のカート認識をアラート表示 === */
+(function(){
+  const btn = document.createElement('button');
+  btn.textContent = '🧪 カート診断';
+  btn.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:9999;padding:8px 10px;border:1px solid #ddd;border-radius:10px;background:#fff;';
+  btn.onclick = () => {
+    const data = window.__cart_export__();
+    console.log('[cart debug]', data);
+    alert(`items: ${data.items.length}\n` + data.items.map(i=>`${i.name} x ${i.qty} @ ${i.unit_price}`).join('\n'));
+  };
+  document.body.appendChild(btn);
+})();
+</script>
 
 </body>
 </html>
